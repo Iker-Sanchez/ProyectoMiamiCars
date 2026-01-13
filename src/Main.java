@@ -4,7 +4,7 @@ import java.sql.Statement;
 import java.util.Scanner;
 
 public class Main {
-    //HOLA MARC
+    //JUDIT SIRVIENTA
     public static void main(String[] args) {
         Scanner e = new Scanner(System.in);
         boolean acabado=false;
