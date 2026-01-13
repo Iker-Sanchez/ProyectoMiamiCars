@@ -1,6 +1,4 @@
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.Scanner;
 
 public class Main {
@@ -25,6 +23,7 @@ public class Main {
 
                     switch (eleccionCliente) {
                         case 1:
+                            darDeAltaCliente();
                             break;
 
                         case 2:
@@ -103,6 +102,43 @@ public class Main {
 
         } catch (Exception b) {
             System.out.println("Error al listar los coches");
+            b.printStackTrace();
+        }
+    }
+    public static void darDeAltaCliente() {
+        Scanner e = new Scanner(System.in);
+        String sql = "Insert into clientes (dni, nombre, apellidos, edad, telefono, direccion, email, permiso_conduccion ) values (?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            System.out.println("Introduce el DNI");
+            String dniUsuario = e.nextLine();
+            stmt.setString(1, dniUsuario);
+            System.out.println("Introduce el nombre");
+            String nombreUsuario = e.nextLine();
+            stmt.setString(2, nombreUsuario);
+            System.out.println("Introduce el apellido");
+            String apellidoUsuario = e.nextLine();
+            stmt.setString(3, apellidoUsuario);
+            System.out.println("Introduce el edad");
+            int edadUsuario = e.nextInt();
+            e.nextLine();
+            stmt.setInt(4, edadUsuario);
+            System.out.println("Introduce el telefono");
+            String telefonoUsuario = e.nextLine();
+            stmt.setString(5, telefonoUsuario);
+            System.out.println("Introduce el direccion");
+            String direccionUsuario = e.nextLine();
+            stmt.setString(6, direccionUsuario);
+            System.out.println("Introduce el email");
+            String emailUsuario = e.nextLine();
+            stmt.setString(7, emailUsuario);
+            System.out.println("Introduce el permiso conduccion");
+            String permisoConduccionUsuario = e.nextLine();
+            stmt.setString(8, permisoConduccionUsuario);
+
+            stmt.executeUpdate();
+            System.out.println("Cliente dado de alta correctamente");
+        } catch (RuntimeException | SQLException b) {
+            System.out.println("Error al añadir el cliente");
             b.printStackTrace();
         }
     }
