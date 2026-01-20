@@ -43,6 +43,17 @@ CREATE TABLE alquileres (
     FOREIGN KEY (dni_cliente) REFERENCES clientes(dni),
     FOREIGN KEY (matricula_coche) REFERENCES coches(matricula)
 );
+INSERT INTO clientes (dni, nombre, apellidos, edad, telefono, direccion, email, permiso_conduccion) VALUES
+('12345678A', 'Juan', 'Pérez Gómez', 35, '600123456', 'Calle Mayor 10, Barcelona', 'juan.perez@gmail.com', 'B1234567'),
+('23456789B', 'María', 'López Sánchez', 28, '611234567', 'Avenida Diagonal 245, Barcelona', 'maria.lopez@gmail.com', 'B2345678'),
+('34567890C', 'Carlos', 'Martínez Ruiz', 42, '622345678', 'Carrer Aragó 120, Barcelona', 'carlos.martinez@gmail.com', 'B3456789'),
+('45678901D', 'Laura', 'García Torres', 31, '633456789', 'Passeig de Gràcia 50, Barcelona', 'laura.garcia@gmail.com', 'B4567890'),
+('56789012E', 'David', 'Fernández Molina', 55, '644567890', 'Calle Balmes 78, Barcelona', 'david.fernandez@gmail.com', 'B5678901'),
+('67890123F', 'Ana', 'Romero Díaz', 26, '655678901', 'Carrer Sants 210, Barcelona', 'ana.romero@gmail.com', 'B6789012'),
+('78901234G', 'Jordi', 'Casas Soler', 39, '666789012', 'Carrer Provença 330, Barcelona', 'jordi.casas@gmail.com', 'B7890123'),
+('89012345H', 'Marta', 'Navarro Puig', 47, '677890123', 'Avinguda Meridiana 400, Barcelona', 'marta.navarro@gmail.com', 'B8901234'),
+('90123456J', 'Sergio', 'Vidal Moreno', 33, '688901234', 'Carrer Marina 90, Barcelona', 'sergio.vidal@gmail.com', 'B9012345'),
+('01234567K', 'Clara', 'Ribas Font', 22, '699012345', 'Carrer Gran Via 600, Barcelona', 'clara.ribas@gmail.com', 'B0123456');
 
 INSERT INTO coches VALUES
 ('1234ABC', 'WBAXX11010A123456', 'Toyota', 'Corolla', 'Blanco', 'Berlina', 5, 4, 'gasolina');
@@ -74,3 +85,6 @@ INSERT INTO coches VALUES
 INSERT INTO coches VALUES
 ('0123JKL', '5YJSA1E26HF123456', 'Tesla', 'Model 3', 'Blanco', 'Berlina', 5, 4, 'electrico');
 
+
+select * from clientes;
+select * from coches;
