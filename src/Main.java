@@ -1,8 +1,11 @@
 import java.sql.*;
+import java.util.InputMismatchException;
 import java.util.Scanner;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 public class Main {
-    //SOY MALA CONDUCTORA
     public static void main(String[] args) throws SQLException {
         Scanner e = new Scanner(System.in);
         boolean acabado=false;
@@ -12,15 +15,29 @@ public class Main {
             System.out.println("1.- CLIENTES");
             System.out.println("2.- COCHES");
             System.out.println("3.- ALQUILERES");
-            int eleccion = e.nextInt();
-
+            int eleccion;
+            try {
+                eleccion = e.nextInt();
+            } catch (InputMismatchException ex) {
+                System.out.println("❌ Debes introducir un número.");
+                e.nextLine(); // limpiar buffer
+                continue;     // volver al menú principal
+            }
             switch (eleccion) {
                 case 1:
                     System.out.println("1.- Dar de Alta Cliente: ");
                     System.out.println("2.- Modificar Cliente");
                     System.out.println("3.- Listado Clientes");
                     System.out.println("4.- Buscar Cliente");
-                    int eleccionCliente = e.nextInt();
+                    System.out.println("5.- Salir");
+                    int eleccionCliente;
+                    try {
+                        eleccionCliente = e.nextInt();
+                    } catch (InputMismatchException ex) {
+                        System.out.println("❌ Debes introducir un número.");
+                        e.nextLine(); // limpiar buffer
+                        continue;     // volver al menú principal
+                    }
 
                     switch (eleccionCliente) {
                         case 1:
@@ -38,6 +55,7 @@ public class Main {
                         case 4:
                             buscarClienteDni();
                             break;
+
                     }
                     break;
 
@@ -46,7 +64,15 @@ public class Main {
                     System.out.println("2.- Modificar Coche");
                     System.out.println("3.- Listado Coche");
                     System.out.println("4.- Buscar Coche");
-                    int eleccionCoche = e.nextInt();
+                    System.out.println("5.- Salir");
+                    int eleccionCoche;
+                    try {
+                        eleccionCoche = e.nextInt();
+                    } catch (InputMismatchException ex) {
+                        System.out.println("❌ Debes introducir un número.");
+                        e.nextLine(); // limpiar buffer
+                        continue;     // volver al menú principal
+                    }
 
                     switch (eleccionCoche) {
                         case 1:
@@ -64,6 +90,7 @@ public class Main {
                         case 4:
                             buscarCocheMatricula();
                             break;
+
                     }
                     break;
 
@@ -71,22 +98,37 @@ public class Main {
                     System.out.println("1.- Alquilar Coche");
                     System.out.println("2.- Devolver Coche");
                     System.out.println("3.- Listado de Coches Disponibles");
-                    int opcion=e.nextInt();
+                    System.out.println("4.- Listado de Coches Alquilados");
+                    System.out.println("5.- Salir");
+                    int opcion;
+                    try {
+                        opcion = e.nextInt();
+                    } catch (InputMismatchException ex) {
+                        System.out.println("❌ Debes introducir un número.");
+                        e.nextLine();
+                        continue;
+                    }
 
                     switch (opcion) {
                         case 1:
                             alquilarCoche();
                             break;
-
                         case 2:
                             devolverCoche();
                             break;
-
                         case 3:
                             listarCochesDisponibles();
                             break;
+                        case 4:
+                            listarCochesAlquilados();
+                            break;
+                        case 5:
+                            break;
+                        default:
+                            System.out.println("❌ Opción no válida.");
                     }
                     break;
+
             }
         }
     }
@@ -257,6 +299,11 @@ public class Main {
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement psSelect = conn.prepareStatement(selectSql)) {
+            if (clienteTieneAlquilerActivo(conn, dni)) {
+                System.out.println("❌ No se puede modificar: el cliente tiene un coche alquilado actualmente.");
+                return;
+            }
+
 
             psSelect.setString(1, dni);
             try (ResultSet rs = psSelect.executeQuery()) {
@@ -389,6 +436,11 @@ public class Main {
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement psSelect = conn.prepareStatement(selectSql)) {
+
+            if (cocheEstaAlquilado(conn, matricula)) {
+                System.out.println("❌ No se puede modificar: el coche está actualmente alquilado.");
+                return;
+            }
 
             psSelect.setString(1, matricula);
             try (ResultSet rs = psSelect.executeQuery()) {
@@ -644,41 +696,56 @@ public class Main {
     }
 
     public static void alquilarCoche() {
-        Scanner e = new Scanner(System.in);
+        Scanner sc = new Scanner(System.in);
+        sc.nextLine(); // 🔥 limpia el salto de línea pendiente de los nextInt del menú
 
         System.out.print("DNI del cliente: ");
-        String dni = e.next().trim();
+        String dni = sc.nextLine().trim();
 
         System.out.print("Matrícula del coche: ");
-        String matricula = e.next().trim();
+        String matricula = sc.nextLine().trim();
 
-        String comprobarCliente = "SELECT dni FROM clientes WHERE dni = ?";
-        String comprobarCoche = "SELECT matricula, disponible FROM coches WHERE matricula = ?";
-        String insertarAlquiler = "INSERT INTO alquileres (dni_cliente, matricula, fecha_inicio, devuelto) VALUES (?, ?, CURDATE(), false)";
+        LocalDate fechaPrevista = leerFecha(sc, "Fecha devolución prevista");
+        System.out.print("Lugar de devolución: ");
+        String lugarDevolucion = sc.nextLine().trim();
+
+        double precioDia = leerDouble(sc, "Precio por día (€)");
+        double penalizacionDia = leerDouble(sc, "Penalización por día de retraso (€)");
+        boolean depositoLlenoPrevisto = leerSiNo(sc, "¿Debe devolverse con depósito lleno?");
+
+        String comprobarCliente = "SELECT 1 FROM clientes WHERE dni = ?";
+        String comprobarCoche = "SELECT disponible FROM coches WHERE matricula = ?";
+
+        String insertarAlquiler =
+                "INSERT INTO alquileres " +
+                        "(dni_cliente, matricula, fecha_inicio, fecha_devolucion_prevista, lugar_devolucion, " +
+                        " precio_dia, penalizacion_dia, deposito_lleno_previsto, devuelto) " +
+                        "VALUES (?, ?, CURDATE(), ?, ?, ?, ?, ?, false)";
+
         String ponerNoDisponible = "UPDATE coches SET disponible = false WHERE matricula = ?";
 
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false);
 
-            // 1) Cliente existe
+            // Cliente existe
             try (PreparedStatement ps = conn.prepareStatement(comprobarCliente)) {
                 ps.setString(1, dni);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) {
-                        System.out.println("No existe ningún cliente con este DNI.");
+                        System.out.println("❌ No existe cliente con ese DNI.");
                         conn.rollback();
                         return;
                     }
                 }
             }
 
-            // 2) Coche existe y disponible
+            // Coche existe y disponible
             boolean disponible;
             try (PreparedStatement ps = conn.prepareStatement(comprobarCoche)) {
                 ps.setString(1, matricula);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) {
-                        System.out.println("No existe ningún coche con esta matrícula.");
+                        System.out.println("❌ No existe coche con esa matrícula.");
                         conn.rollback();
                         return;
                     }
@@ -687,33 +754,32 @@ public class Main {
             }
 
             if (!disponible) {
-                System.out.println("Este coche ya está alquilado.");
+                System.out.println("❌ Ese coche ya está alquilado.");
                 conn.rollback();
                 return;
             }
 
-            // 3) Insert alquiler
+            // Insert alquiler
             try (PreparedStatement ps = conn.prepareStatement(insertarAlquiler)) {
                 ps.setString(1, dni);
                 ps.setString(2, matricula);
+                ps.setDate(3, Date.valueOf(fechaPrevista));
+                ps.setString(4, lugarDevolucion);
+                ps.setDouble(5, precioDia);
+                ps.setDouble(6, penalizacionDia);
+                ps.setBoolean(7, depositoLlenoPrevisto);
                 ps.executeUpdate();
             }
 
-            // 4) Update coche disponible=false
-            int filas;
+            // Marcar coche no disponible
             try (PreparedStatement ps = conn.prepareStatement(ponerNoDisponible)) {
                 ps.setString(1, matricula);
-                filas = ps.executeUpdate();
+                ps.executeUpdate();
             }
 
-            if (filas == 0) {
-                System.out.println("No se pudo actualizar el estado del coche.");
-                conn.rollback();
-                return;
-            }
-
-            conn.commit();  // ✅ ESTA LÍNEA ES LA CLAVE
+            conn.commit();
             System.out.println("✅ Coche alquilado correctamente.");
+            System.out.println("Devolución prevista: " + fechaPrevista + " | Lugar: " + lugarDevolucion);
 
         } catch (Exception ex) {
             System.out.println("Error al alquilar coche.");
@@ -721,60 +787,107 @@ public class Main {
         }
     }
 
+
     public static void devolverCoche() {
         Scanner sc = new Scanner(System.in);
 
         System.out.print("Matrícula del coche a devolver: ");
         String matricula = sc.nextLine().trim();
 
-        String buscarAlquilerActivo =
-                "SELECT id FROM alquileres WHERE matricula = ? AND devuelto = false ORDER BY fecha_inicio DESC LIMIT 1";
-        String cerrarAlquiler =
-                "UPDATE alquileres SET devuelto = true, fecha_fin = CURDATE() WHERE id = ?";
-        String ponerDisponible =
-                "UPDATE coches SET disponible = true WHERE matricula = ?";
+        boolean usarHoy = leerSiNo(sc, "¿La fecha de devolución real es HOY?");
+        LocalDate fechaReal = usarHoy ? LocalDate.now() : leerFecha(sc, "Fecha devolución real");
+
+        boolean depositoLlenoDevuelto = leerSiNo(sc, "¿Devuelve con depósito lleno?");
+        double recargoCombustible = depositoLlenoDevuelto ? 0.0 : leerDouble(sc, "Recargo por NO depósito lleno (€)");
+
+        String buscarActivo =
+                "SELECT id, fecha_inicio, fecha_devolucion_prevista, precio_dia, penalizacion_dia, deposito_lleno_previsto " +
+                        "FROM alquileres WHERE matricula = ? AND devuelto = false " +
+                        "ORDER BY fecha_inicio DESC LIMIT 1";
+
+        String actualizarAlquiler =
+                "UPDATE alquileres SET " +
+                        " devuelto = true, " +
+                        " fecha_fin = ?, " +  // usamos tu campo fecha_fin como fecha real
+                        " deposito_lleno_devuelto = ?, " +
+                        " dias_alquiler = ?, " +
+                        " dias_retraso = ?, " +
+                        " recargo_combustible = ?, " +
+                        " total_final = ? " +
+                        "WHERE id = ?";
+
+        String ponerDisponible = "UPDATE coches SET disponible = true WHERE matricula = ?";
 
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false);
 
-            Integer idAlquiler = null;
+            Integer id = null;
+            LocalDate fechaInicio = null;
+            LocalDate fechaPrevista = null;
+            double precioDia = 0, penalizacionDia = 0;
+            boolean depositoLlenoPrevisto = true;
 
-            // 1) Buscar alquiler activo
-            try (PreparedStatement ps = conn.prepareStatement(buscarAlquilerActivo)) {
+            // Buscar alquiler activo
+            try (PreparedStatement ps = conn.prepareStatement(buscarActivo)) {
                 ps.setString(1, matricula);
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        idAlquiler = rs.getInt("id");
+                    if (!rs.next()) {
+                        System.out.println("❌ No hay alquiler activo para esa matrícula.");
+                        conn.rollback();
+                        return;
                     }
+                    id = rs.getInt("id");
+                    fechaInicio = rs.getDate("fecha_inicio").toLocalDate();
+                    fechaPrevista = rs.getDate("fecha_devolucion_prevista").toLocalDate();
+                    precioDia = rs.getDouble("precio_dia");
+                    penalizacionDia = rs.getDouble("penalizacion_dia");
+                    depositoLlenoPrevisto = rs.getBoolean("deposito_lleno_previsto");
                 }
             }
 
-            if (idAlquiler == null) {
-                System.out.println("No hay ningún alquiler activo para esa matrícula.");
-                conn.rollback();
-                return;
-            }
+            long diasAlquiler = java.time.temporal.ChronoUnit.DAYS.between(fechaInicio, fechaReal);
+            if (diasAlquiler < 1) diasAlquiler = 1;
 
-            // 2) Cerrar alquiler
-            try (PreparedStatement ps = conn.prepareStatement(cerrarAlquiler)) {
-                ps.setInt(1, idAlquiler);
+            long diasRetraso = java.time.temporal.ChronoUnit.DAYS.between(fechaPrevista, fechaReal);
+            if (diasRetraso < 0) diasRetraso = 0;
+
+            double recargo = 0.0;
+            if (depositoLlenoPrevisto && !depositoLlenoDevuelto) recargo = recargoCombustible;
+
+            double total = diasAlquiler * precioDia + diasRetraso * penalizacionDia + recargo;
+
+            // Guardar devolución
+            try (PreparedStatement ps = conn.prepareStatement(actualizarAlquiler)) {
+                ps.setDate(1, Date.valueOf(fechaReal));
+                ps.setBoolean(2, depositoLlenoDevuelto);
+                ps.setInt(3, (int) diasAlquiler);
+                ps.setInt(4, (int) diasRetraso);
+                ps.setDouble(5, recargo);
+                ps.setDouble(6, total);
+                ps.setInt(7, id);
                 ps.executeUpdate();
             }
 
-            // 3) Marcar coche disponible
+            // Marcar coche disponible
             try (PreparedStatement ps = conn.prepareStatement(ponerDisponible)) {
                 ps.setString(1, matricula);
                 ps.executeUpdate();
             }
 
             conn.commit();
+
             System.out.println("✅ Coche devuelto correctamente.");
+            System.out.println("Días alquiler: " + diasAlquiler);
+            System.out.println("Días retraso: " + diasRetraso);
+            System.out.println("Recargo combustible: " + recargo + "€");
+            System.out.println("TOTAL FINAL: " + total + "€");
 
         } catch (Exception ex) {
             System.out.println("Error al devolver coche.");
             ex.printStackTrace();
         }
     }
+
 
     public static void listarCochesDisponibles() {
         String sql = "SELECT * FROM coches WHERE disponible = true";
@@ -801,6 +914,98 @@ public class Main {
         }
     }
 
+    private static boolean cocheEstaAlquilado(Connection conn, String matricula) throws SQLException {
+        String sql = "SELECT disponible FROM coches WHERE matricula = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, matricula);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return false; // si no existe, ya lo controlas antes
+                return !rs.getBoolean("disponible"); // si disponible=false => alquilado
+            }
+        }
+    }
 
+    private static boolean clienteTieneAlquilerActivo(Connection conn, String dni) throws SQLException {
+        String sql = "SELECT 1 FROM alquileres WHERE dni_cliente = ? AND devuelto = false LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, dni);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next(); // si hay fila => tiene alquiler activo
+            }
+        }
+    }
+
+    private static LocalDate leerFecha(Scanner sc, String mensaje) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        while (true) {
+            System.out.print(mensaje + " (YYYY-MM-DD): ");
+            String txt = sc.nextLine().trim();
+            try {
+                return LocalDate.parse(txt, fmt);
+            } catch (DateTimeParseException ex) {
+                System.out.println("❌ Fecha inválida. Ejemplo: 2026-01-26");
+            }
+        }
+    }
+
+    private static double leerDouble(Scanner sc, String mensaje) {
+        while (true) {
+            System.out.print(mensaje + ": ");
+            String txt = sc.nextLine().trim().replace(',', '.');
+            try {
+                return Double.parseDouble(txt);
+            } catch (NumberFormatException ex) {
+                System.out.println("❌ Número inválido.");
+            }
+        }
+    }
+
+    private static boolean leerSiNo(Scanner sc, String mensaje) {
+        while (true) {
+            System.out.print(mensaje + " (s/n): ");
+            String txt = sc.nextLine().trim().toLowerCase();
+            if (txt.equals("s") || txt.equals("si")) return true;
+            if (txt.equals("n") || txt.equals("no")) return false;
+            System.out.println("❌ Responde con s o n.");
+        }
+    }
+
+    public static void listarCochesAlquilados() {
+        String sql =
+                "SELECT a.matricula, c.dni, c.nombre, c.telefono, " +
+                        "       a.fecha_devolucion_prevista, a.lugar_devolucion, a.devuelto " +
+                        "FROM alquileres a " +
+                        "JOIN clientes c ON c.dni = a.dni_cliente " +
+                        "WHERE a.devuelto = false " +
+                        "ORDER BY a.fecha_devolucion_prevista ASC";
+
+        try (Connection conn = DBConnection.getConnection();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+
+            System.out.println("COCHES ACTUALMENTE ALQUILADOS");
+            System.out.println("--------------------------------------------------");
+
+            boolean hay = false;
+            while (rs.next()) {
+                hay = true;
+                System.out.println(
+                        "Matrícula: " + rs.getString("matricula") +
+                                " | DNI: " + rs.getString("dni") +
+                                " | Nombre: " + rs.getString("nombre") +
+                                " | Tel: " + rs.getString("telefono") +
+                                " | Devolver: " + rs.getDate("fecha_devolucion_prevista") +
+                                " | Lugar: " + rs.getString("lugar_devolucion") +
+                                " | Devuelto: " + rs.getBoolean("devuelto")
+                );
+            }
+
+            if (!hay) System.out.println("No hay coches alquilados ahora mismo.");
+
+        } catch (Exception ex) {
+            System.out.println("Error al listar coches alquilados.");
+            ex.printStackTrace();
+        }
+    }
 
 }

@@ -27,22 +27,17 @@ CREATE TABLE clientes (
 
 
 CREATE TABLE alquileres (
-    id_alquiler INT AUTO_INCREMENT PRIMARY KEY,
-    dni_cliente VARCHAR(9),
-    matricula_coche VARCHAR(10),
-    fecha_inicio DATE,
-    dias_alquiler INT,
-    precio_dia DECIMAL(8,2),
-    precio_final DECIMAL(10,2),
-    lugar_devolucion VARCHAR(100),
-    deposito_lleno BOOLEAN,
-    tipo_seguro ENUM('con_franquicia','sin_franquicia'),
-    penalizacion DECIMAL(8,2),
-    fecha_devolucion DATE,
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  dni_cliente VARCHAR(20) NOT NULL,
+  matricula VARCHAR(20) NOT NULL,
+  fecha_inicio DATE NOT NULL,
+  fecha_fin DATE NULL,
+  devuelto BOOLEAN NOT NULL DEFAULT FALSE,
 
-    FOREIGN KEY (dni_cliente) REFERENCES clientes(dni),
-    FOREIGN KEY (matricula_coche) REFERENCES coches(matricula)
+  FOREIGN KEY (dni_cliente) REFERENCES clientes(dni),
+  FOREIGN KEY (matricula) REFERENCES coches(matricula)
 );
+
 INSERT INTO clientes (dni, nombre, apellidos, edad, telefono, direccion, email, permiso_conduccion) VALUES
 ('12345678A', 'Juan', 'Pérez Gómez', 35, '600123456', 'Calle Mayor 10, Barcelona', 'juan.perez@gmail.com', 'B1234567'),
 ('23456789B', 'María', 'López Sánchez', 28, '611234567', 'Avenida Diagonal 245, Barcelona', 'maria.lopez@gmail.com', 'B2345678'),
@@ -88,3 +83,68 @@ INSERT INTO coches VALUES
 
 select * from clientes;
 select * from coches;
+ALTER TABLE coches
+ADD COLUMN disponible BOOLEAN NOT NULL DEFAULT TRUE;
+
+USE miami_car;
+
+-- 0) Ver nombres reales de las FK (por si no coinciden)
+-- (Opcional) Puedes ejecutar esto si quieres comprobar:
+-- SHOW CREATE TABLE alquileres;
+
+-- 1) Eliminar claves foráneas que bloquean el MODIFY
+ALTER TABLE alquileres
+DROP FOREIGN KEY alquileres_ibfk_1,
+DROP FOREIGN KEY alquileres_ibfk_2;
+
+-- 2) Cambiar tipos para que coincidan con las PK (clientes.dni = VARCHAR(9), coches.matricula = VARCHAR(10))
+ALTER TABLE alquileres
+MODIFY dni_cliente VARCHAR(9) NOT NULL,
+MODIFY matricula VARCHAR(10) NOT NULL;
+
+-- 3) Volver a crear las claves foráneas
+ALTER TABLE alquileres
+ADD CONSTRAINT fk_alquiler_cliente
+  FOREIGN KEY (dni_cliente) REFERENCES clientes(dni),
+ADD CONSTRAINT fk_alquiler_coche
+  FOREIGN KEY (matricula) REFERENCES coches(matricula);
+
+-- 4) Añadir columna disponible en coches (si ya existe, dará error; ignóralo o comenta la línea)
+ALTER TABLE coches
+ADD COLUMN disponible BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- 5) Añadir campos nuevos a alquileres para cumplir requisitos
+ALTER TABLE alquileres
+ADD COLUMN fecha_devolucion_prevista DATE NULL AFTER fecha_inicio,
+ADD COLUMN lugar_devolucion VARCHAR(120) NULL AFTER fecha_devolucion_prevista,
+ADD COLUMN precio_dia DECIMAL(10,2) NULL AFTER lugar_devolucion,
+ADD COLUMN penalizacion_dia DECIMAL(10,2) NOT NULL DEFAULT 30.00 AFTER precio_dia,
+ADD COLUMN deposito_lleno_previsto BOOLEAN NOT NULL DEFAULT TRUE AFTER penalizacion_dia,
+ADD COLUMN deposito_lleno_devuelto BOOLEAN NULL AFTER deposito_lleno_previsto,
+ADD COLUMN dias_alquiler INT NULL AFTER devuelto,
+ADD COLUMN dias_retraso INT NULL AFTER dias_alquiler,
+ADD COLUMN recargo_combustible DECIMAL(10,2) NULL AFTER dias_retraso,
+ADD COLUMN total_final DECIMAL(10,2) NULL AFTER recargo_combustible;
+
+SHOW CREATE TABLE alquileres;
+SHOW CREATE TABLE coches;
+SHOW CREATE TABLE clientes; 
+
+SELECT * FROM alquileres; 
+SELECT * FROM coches; 
+SELECT * FROM clientes; 
+
+USE miami_car;
+
+ALTER TABLE alquileres
+ADD COLUMN fecha_devolucion_prevista DATE NULL AFTER fecha_inicio,
+ADD COLUMN lugar_devolucion VARCHAR(120) NULL AFTER fecha_devolucion_prevista,
+ADD COLUMN precio_dia DECIMAL(10,2) NULL AFTER lugar_devolucion,
+ADD COLUMN penalizacion_dia DECIMAL(10,2) NOT NULL DEFAULT 30.00 AFTER precio_dia,
+ADD COLUMN deposito_lleno_previsto BOOLEAN NOT NULL DEFAULT TRUE AFTER penalizacion_dia,
+ADD COLUMN deposito_lleno_devuelto BOOLEAN NULL AFTER deposito_lleno_previsto,
+ADD COLUMN dias_alquiler INT NULL AFTER devuelto,
+ADD COLUMN dias_retraso INT NULL AFTER dias_alquiler,
+ADD COLUMN recargo_combustible DECIMAL(10,2) NULL AFTER dias_retraso,
+ADD COLUMN total_final DECIMAL(10,2) NULL AFTER recargo_combustible;
+
